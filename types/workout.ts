@@ -1,13 +1,13 @@
 export interface ExercicioResponseDTO {
   id: number;
   nome: string;
-  descricao: string;
-  dificuldade: string;
-  impacto: string;
-  objetivo: string;
-  acoesArticulares: string[];
-  restricoesLimitacoes: string[];
-  restricoesLesoes: string[];
+  descricao?: string;
+  dificuldade?: string;
+  impacto?: string;
+  objetivo?: string;
+  acoesArticulares?: string[];
+  restricoesLimitacoes?: string[];
+  restricoesLesoes?: string[];
 }
 
 export interface ItemTreinoInputDTO {
@@ -21,7 +21,7 @@ export interface ItemTreinoInputDTO {
 }
 
 export interface SaveTreinoDTO {
-  observacoes?: string;
+  observacoes: string;
   itens: ItemTreinoInputDTO[];
 }
 
@@ -39,10 +39,10 @@ export interface ItemTreinoResponseDTO {
 
 export interface TreinoResponseDTO {
   id: number;
-  status: "RASCUNHO" | "PUBLICADO";
+  status: "RASCUNHO" | "ATIVO";
   dataCriacao: string;
   dataPublicacao?: string;
-  observacoes?: string;
+  observacoes: string;
   alunoId: number;
   professorId: number;
   itens: ItemTreinoResponseDTO[];
