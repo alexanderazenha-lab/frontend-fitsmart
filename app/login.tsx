@@ -126,13 +126,22 @@ export default function LoginScreen() {
         router.replace("/(tabs)/workout");
       }
     } catch (error: any) {
-      console.error("Erro na autenticação:", error);
+      console.error(
+        "Erro na autenticação:",
+        error.response?.status,
+        error.response?.data ?? error.message,
+      );
 
-      // Captura diferentes formatos de erro (message ou error) vindos da API
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        "E-mail ou senha incorretos.";
+      let errorMessage = "Não foi possível entrar. Tente novamente.";
+      if (!error.response) {
+        errorMessage =
+          "Sem conexão com o servidor. Verifique se o backend está rodando.";
+      } else if (error.response.status === 401) {
+        errorMessage =
+          error.response.data?.message || "E-mail ou senha incorretos.";
+      } else if (error.response.data?.message) {
+        errorMessage = error.response.data.message;
+      }
 
       notify("Falha ao entrar", errorMessage);
     } finally {
