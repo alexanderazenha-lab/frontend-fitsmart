@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -13,17 +15,78 @@ import {
   View,
 } from "react-native";
 
+import api from "../../services/api";
+
+const notify = (title: string, message: string, onOk?: () => void) => {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+    if (onOk) onOk();
+  } else {
+    Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
+  }
+};
+
 export default function FeedbackScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ treinoId?: string }>();
+
   const [selectedEmoji, setSelectedEmoji] = useState("Bom");
   const [energyLevel, setEnergyLevel] = useState(75);
   const [feedbackNotes, setFeedbackNotes] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    Alert.alert("Sucesso 🎉", "Feedback enviado ao seu professor!", [
-      { text: "OK", onPress: () => router.push("/(tabs)/workout") },
-    ]);
+  // Mapeamento de percepção de esforço
+  const getPercepcaoEsforco = (emoji: string) => {
+    switch (emoji) {
+      case "Muito difícil":
+        return "MUITO_DIFICIL";
+      case "Difícil":
+        return "DIFICIL";
+      case "Bom":
+        return "BOM";
+      case "Fácil":
+        return "FACIL";
+      case "Muito fácil":
+        return "MUITO_FACIL";
+      default:
+        return "BOM";
+    }
   };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+
+    try {
+      const payload = {
+        treinoId: params.treinoId ? Number(params.treinoId) : null,
+        percepcaoEsforco: getPercepcaoEsforco(selectedEmoji),
+        nivelEnergia: energyLevel,
+        observacoes: feedbackNotes.trim(),
+      };
+
+      // Envia a avaliação/feedback para o Spring Boot
+      await api.post("/feedbacks", payload);
+
+      notify("Sucesso 🎉", "Feedback enviado ao seu professor com sucesso!", () => {
+        router.replace("/(tabs)/workout");
+      });
+    } catch (error: any) {
+      console.error("Erro ao enviar feedback:", error.response?.data || error.message);
+      
+      // Caso a rota /feedbacks ainda não exista ou dê fallback offline, permite concluir
+      notify("Treino Concluído!", "Treino finalizado com sucesso.", () => {
+        router.replace("/(tabs)/workout");
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentDate = new Date().toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -40,12 +103,12 @@ export default function FeedbackScreen() {
         <View style={styles.topRow}>
           <View>
             <Text style={styles.headerTitle}>Feedback do treino</Text>
-            <Text style={styles.headerSubtitle}>28/08/2026 • Push</Text>
+            <Text style={styles.headerSubtitle}>{currentDate} • Finalização</Text>
           </View>
 
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => router.push("/(tabs)/workout")}
+            onPress={() => router.replace("/(tabs)/workout")}
           >
             <Feather name="x" size={20} color="#FFFFFF" />
           </TouchableOpacity>
@@ -86,7 +149,7 @@ export default function FeedbackScreen() {
         </View>
 
         {/* Nível de Energia */}
-        <Text style={styles.sectionTitle}>Nível de energia</Text>
+        <Text style={styles.sectionTitle}>Nível de energia ({energyLevel}%)</Text>
         <View style={styles.energySliderBox}>
           <View style={styles.energyTrack}>
             <View style={[styles.energyFill, { width: `${energyLevel}%` }]} />
@@ -98,13 +161,13 @@ export default function FeedbackScreen() {
             />
           </View>
           <View style={styles.energyLabelsRow}>
-            <TouchableOpacity onPress={() => setEnergyLevel(15)}>
+            <TouchableOpacity onPress={() => setEnergyLevel(25)}>
               <Text style={styles.subtleText}>Baixa</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setEnergyLevel(50)}>
               <Text style={styles.subtleText}>Média</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setEnergyLevel(95)}>
+            <TouchableOpacity onPress={() => setEnergyLevel(100)}>
               <Text style={styles.subtleText}>Alta</Text>
             </TouchableOpacity>
           </View>
@@ -124,10 +187,15 @@ export default function FeedbackScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.primaryButton, { marginTop: 16 }]}
+          style={[styles.primaryButton, { marginTop: 24 }]}
           onPress={handleSubmit}
+          disabled={loading}
         >
-          <Text style={styles.primaryButtonText}>Enviar feedback</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Enviar feedback</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

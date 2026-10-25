@@ -34,6 +34,9 @@ export default function TeacherDashboardScreen() {
       const response = await api.get("/professors/me/students");
       if (Array.isArray(response.data)) {
         setStudentCount(response.data.length);
+      } else if (response.data?.content && Array.isArray(response.data.content)) {
+        // Trata paginação do Spring Boot (Page<AlunoResponseDTO>)
+        setStudentCount(response.data.content.length);
       }
     } catch (error) {
       console.error("Erro ao carregar dados do dashboard:", error);

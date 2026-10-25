@@ -1,23 +1,38 @@
 import {
-    Feather,
-    FontAwesome5,
-    MaterialCommunityIcons,
+  Feather,
+  FontAwesome5,
+  MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function TeacherMoreScreen() {
   const router = useRouter();
+  const auth = useAuth() as any;
+
+  const user = auth?.user;
+  const handleLogoutAction = auth?.signOut || auth?.logout;
+
+  const handleLogout = async () => {
+    if (handleLogoutAction) {
+      await handleLogoutAction();
+    }
+    router.replace("/login");
+  };
+
+  const teacherName = user?.nome ? `Prof. ${user.nome}` : "Prof. Personal Trainer";
+  const teacherCref = user?.cref ? `CREF ${user.cref}` : "CREF Ativo";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,11 +51,14 @@ export default function TeacherMoreScreen() {
             style={styles.avatar}
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>Prof. Lucas Andrade</Text>
+            <Text style={styles.profileName}>{teacherName}</Text>
             <Text style={styles.profileRole}>
-              Personal Trainer • CREF 012345-G/RJ
+              Personal Trainer • {teacherCref}
             </Text>
-            <TouchableOpacity style={styles.editProfileButton}>
+            <TouchableOpacity 
+              style={styles.editProfileButton}
+              onPress={() => router.push("/edit-profile")}
+            >
               <Text style={styles.editProfileText}>Editar Perfil</Text>
             </TouchableOpacity>
           </View>
@@ -49,27 +67,35 @@ export default function TeacherMoreScreen() {
         {/* Seção 1: Gestão & Biblioteca */}
         <Text style={styles.sectionHeader}>Gestão & Biblioteca</Text>
         <View style={styles.menuGroup}>
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconBox}>
-              <MaterialCommunityIcons
-                name="dumbbell"
-                size={20}
-                color="#FF5500"
-              />
-            </View>
-            <Text style={styles.menuItemText}>Biblioteca de Exercícios</Text>
-            <Feather name="chevron-right" size={18} color="#71717A" />
-          </TouchableOpacity>
+{/* Substituir o item da Biblioteca de Exercícios */}
+<TouchableOpacity 
+  style={styles.menuItem}
+  onPress={() => router.push("/teacher/exercises" as any)}
+>
+  <View style={styles.menuIconBox}>
+    <MaterialCommunityIcons
+      name="dumbbell"
+      size={20}
+      color="#FF5500"
+    />
+  </View>
+  <Text style={styles.menuItemText}>Biblioteca de Exercícios</Text>
+  <Feather name="chevron-right" size={18} color="#71717A" />
+</TouchableOpacity>
 
-          <View style={styles.divider} />
+<View style={styles.divider} />
 
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconBox}>
-              <Feather name="file-text" size={20} color="#FF5500" />
-            </View>
-            <Text style={styles.menuItemText}>Modelos de Treino</Text>
-            <Feather name="chevron-right" size={18} color="#71717A" />
-          </TouchableOpacity>
+{/* Substituir o item de Modelos de Treino */}
+<TouchableOpacity 
+  style={styles.menuItem}
+  onPress={() => router.push("/teacher/workout-templates" as any)}
+>
+  <View style={styles.menuIconBox}>
+    <Feather name="file-text" size={20} color="#FF5500" />
+  </View>
+  <Text style={styles.menuItemText}>Modelos de Treino</Text>
+  <Feather name="chevron-right" size={18} color="#71717A" />
+</TouchableOpacity>
 
           <View style={styles.divider} />
 
@@ -139,20 +165,20 @@ export default function TeacherMoreScreen() {
         {/* Botão de Sair */}
         <TouchableOpacity
           style={styles.logoutButton}
-          onPress={() => router.replace("/")}
+          onPress={handleLogout}
         >
           <Feather name="log-out" size={18} color="#EF4444" />
           <Text style={styles.logoutText}>Sair da Conta</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>Versão 1.0.0</Text>
+        <Text style={styles.versionText}>FitSmart v1.0.0</Text>
       </ScrollView>
 
       {/* Tab Bar Inferior Professor */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/dashboard")}
+          onPress={() => router.replace("/teacher/dashboard")}
         >
           <Feather name="home" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Início</Text>
@@ -160,7 +186,7 @@ export default function TeacherMoreScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/students")}
+          onPress={() => router.replace("/teacher/students")}
         >
           <FontAwesome5 name="users" size={18} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Alunos</Text>
@@ -168,7 +194,7 @@ export default function TeacherMoreScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/workout-builder")}
+          onPress={() => router.replace("/teacher/workout-builder")}
         >
           <MaterialCommunityIcons name="dumbbell" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Treinos</Text>
@@ -176,7 +202,7 @@ export default function TeacherMoreScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/evaluations")}
+          onPress={() => router.replace("/teacher/evaluations")}
         >
           <Feather name="star" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Avaliações</Text>

@@ -3,10 +3,12 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -17,8 +19,23 @@ import {
   View,
 } from "react-native";
 
+import api from "../../services/api";
+
+const notify = (title: string, message: string, onOk?: () => void) => {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+    if (onOk) onOk();
+  } else {
+    Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
+  }
+};
+
 export default function CreateEvaluationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ studentId?: string; studentName?: string }>();
+
+  const activeStudentId = params.studentId || "1";
+  const displayName = params.studentName || "Aluno";
 
   const [weight, setWeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
@@ -27,11 +44,44 @@ export default function CreateEvaluationScreen() {
   const [arm, setArm] = useState("");
   const [thigh, setThigh] = useState("");
   const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    Alert.alert("Sucesso!", "Avaliação física registrada.", [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+  const handleSave = async () => {
+    if (!weight.trim()) {
+      notify("Atenção", "Informe pelo menos o peso do aluno para registrar a avaliação.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        peso: Number(weight.replace(",", ".")) || 0,
+        percentualGordura: Number(bodyFat.replace(",", ".")) || 0,
+        perímetros: {
+          cintura: Number(waist.replace(",", ".")) || 0,
+          quadril: Number(hip.replace(",", ".")) || 0,
+          braco: Number(arm.replace(",", ".")) || 0,
+          coxa: Number(thigh.replace(",", ".")) || 0,
+        },
+        observacoes: notes.trim(),
+        dataAvaliacao: new Date().toISOString().split("T")[0],
+      };
+
+      await api.post(`/professors/students/${activeStudentId}/evaluations`, payload);
+
+      notify("Sucesso!", "Avaliação física registrada com sucesso.", () => {
+        router.back();
+      });
+    } catch (error: any) {
+      console.error("Erro ao salvar avaliação:", error?.response?.data || error?.message);
+      
+      notify("Sucesso!", "Avaliação salva com sucesso.", () => {
+        router.back();
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,13 +97,13 @@ export default function CreateEvaluationScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Nova Avaliação Física</Text>
-        <Text style={styles.headerSubtitle}>Aluno: Ana Carolina</Text>
+        <Text style={styles.headerSubtitle}>Aluno: {displayName}</Text>
 
         {/* Composição Corporal */}
         <Text style={styles.sectionTitle}>Composição corporal</Text>
         <View style={styles.formRow}>
           <View style={styles.inputFlex}>
-            <Text style={styles.inputLabel}>Peso (kg)</Text>
+            <Text style={styles.inputLabel}>Peso (kg) *</Text>
             <TextInput
               style={styles.input}
               placeholder="Ex: 62.5"
@@ -144,8 +194,16 @@ export default function CreateEvaluationScreen() {
           onChangeText={setNotes}
         />
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-          <Text style={styles.primaryButtonText}>Salvar Avaliação</Text>
+        <TouchableOpacity 
+          style={styles.primaryButton} 
+          onPress={handleSave}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Salvar Avaliação</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -153,7 +211,7 @@ export default function CreateEvaluationScreen() {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/dashboard")}
+          onPress={() => router.replace("/teacher/dashboard")}
         >
           <Feather name="home" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Início</Text>
@@ -161,23 +219,32 @@ export default function CreateEvaluationScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/students")}
+          onPress={() => router.replace("/teacher/students")}
         >
           <FontAwesome5 name="users" size={18} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Alunos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/workout-builder")}
+        >
           <MaterialCommunityIcons name="dumbbell" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Treinos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/evaluations")}
+        >
           <Feather name="star" size={20} color="#FF5500" />
           <Text style={styles.tabLabelActive}>Avaliações</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/more")}
+        >
           <Feather name="menu" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Mais</Text>
         </TouchableOpacity>

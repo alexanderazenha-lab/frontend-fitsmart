@@ -32,8 +32,10 @@ interface UserResponse {
 
 interface AlunoResponse {
   id: number;
-  user: UserResponse;
-  professorId: number;
+  user?: UserResponse;
+  nome?: string;
+  email?: string;
+  professorId?: number;
 }
 
 const notify = (title: string, message: string) => {
@@ -62,7 +64,14 @@ export default function StudentsListScreen() {
   const fetchStudents = async () => {
     try {
       const response = await api.get("/professors/me/students");
-      setStudents(response.data);
+      
+      if (Array.isArray(response.data)) {
+        setStudents(response.data);
+      } else if (response.data?.content && Array.isArray(response.data.content)) {
+        setStudents(response.data.content);
+      } else {
+        setStudents([]);
+      }
     } catch (error: any) {
       console.error("Erro ao carregar alunos:", error);
     } finally {
@@ -112,11 +121,16 @@ export default function StudentsListScreen() {
   };
 
   const filteredStudents = students.filter((s) => {
-    const fullName =
-      `${s.user?.nome || ""} ${s.user?.sobrenome || ""}`.toLowerCase();
-    const userEmail = (s.user?.email || "").toLowerCase();
+    const nameStr = s.user
+      ? `${s.user.nome || ""} ${s.user.sobrenome || ""}`
+      : s.nome || "";
+    const emailStr = s.user?.email || s.email || "";
+
     const term = search.toLowerCase();
-    return fullName.includes(term) || userEmail.includes(term);
+    return (
+      nameStr.toLowerCase().includes(term) ||
+      emailStr.toLowerCase().includes(term)
+    );
   });
 
   return (
@@ -186,40 +200,72 @@ export default function StudentsListScreen() {
               </View>
             ) : (
               filteredStudents.map((student) => {
-                const initial = student.user?.nome
-                  ? student.user.nome.charAt(0).toUpperCase()
-                  : "A";
-                const fullName =
-                  `${student.user?.nome || ""} ${student.user?.sobrenome || ""}`.trim();
+                const name = student.user?.nome || student.nome || "Aluno";
+                const initial = name.charAt(0).toUpperCase();
+                const fullName = student.user
+                  ? `${student.user.nome || ""} ${student.user.sobrenome || ""}`.trim()
+                  : name;
+                const studentEmail = student.user?.email || student.email || "--";
 
                 return (
-                  <TouchableOpacity
-                    key={student.id}
-                    style={styles.studentCard}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/teacher/student-detail",
-                        params: { studentId: student.id },
-                      })
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.avatarBox}>
-                      <Text style={styles.avatarText}>{initial}</Text>
-                    </View>
+                  <View key={student.id} style={styles.studentCard}>
+                    {/* Toque no perfil do aluno */}
+                    <TouchableOpacity
+                      style={styles.studentMainArea}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/teacher/student-detail",
+                          params: { studentId: student.id },
+                        })
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.avatarBox}>
+                        <Text style={styles.avatarText}>{initial}</Text>
+                      </View>
 
-                    <View style={styles.studentInfo}>
-                      <Text style={styles.studentName}>{fullName}</Text>
-                      <Text style={styles.studentSubtext}>
-                        E-mail:{" "}
-                        <Text style={{ color: "#D4D4D8" }}>
-                          {student.user?.email}
+                      <View style={styles.studentInfo}>
+                        <Text style={styles.studentName}>{fullName}</Text>
+                        <Text style={styles.studentSubtext} numberOfLines={1}>
+                          E-mail:{" "}
+                          <Text style={{ color: "#D4D4D8" }}>
+                            {studentEmail}
+                          </Text>
                         </Text>
-                      </Text>
-                    </View>
+                      </View>
+                    </TouchableOpacity>
 
-                    <Feather name="chevron-right" size={20} color="#71717A" />
-                  </TouchableOpacity>
+                    {/* Grupo de Ações Rápidas à Direita */}
+                    <View style={styles.actionButtonsGroup}>
+                      <TouchableOpacity
+                        style={styles.chatIconButton}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/teacher/chat",
+                            params: {
+                              studentId: student.id,
+                              studentName: fullName,
+                            },
+                          })
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="message-square" size={18} color="#FF5500" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push({
+                            pathname: "/teacher/student-detail",
+                            params: { studentId: student.id },
+                          })
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="chevron-right" size={20} color="#71717A" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 );
               })
             )}
@@ -410,12 +456,19 @@ const styles = StyleSheet.create({
   studentCard: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: "#18181B",
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#27272A",
+  },
+  studentMainArea: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
   },
   avatarBox: {
     width: 48,
@@ -446,6 +499,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#71717A",
     lineHeight: 16,
+  },
+  actionButtonsGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  chatIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 85, 0, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 85, 0, 0.25)",
   },
   modalOverlay: {
     flex: 1,

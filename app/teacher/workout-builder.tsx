@@ -44,16 +44,16 @@ interface ExerciseItemState {
 export default function WorkoutBuilderScreen() {
   const router = useRouter();
   const { studentId, workoutId: initialWorkoutId } = useLocalSearchParams<{
-    studentId: string;
+    studentId?: string;
     workoutId?: string;
   }>();
 
-  const parsedStudentId = Number(studentId) || 1;
+  const parsedStudentId = studentId ? Number(studentId) : 1;
   const [workoutId, setWorkoutId] = useState<number | null>(
-    initialWorkoutId ? Number(initialWorkoutId) : null,
+    initialWorkoutId ? Number(initialWorkoutId) : null
   );
 
-  const [workoutTitle, setWorkoutTitle] = useState("Treino A - Peito e Ombros");
+  const [workoutTitle, setWorkoutTitle] = useState("Treino A - Hipertrofia");
   const [exercises, setExercises] = useState<ExerciseItemState[]>([]);
 
   // Estados do Modal do Catálogo e Loading
@@ -73,11 +73,11 @@ export default function WorkoutBuilderScreen() {
     try {
       setLoadingCatalog(true);
       const data = await getExercises();
-      setCatalog(data);
+      setCatalog(data || []);
     } catch (error) {
       Alert.alert(
         "Erro",
-        "Não foi possível carregar o catálogo de exercícios.",
+        "Não foi possível carregar o catálogo de exercícios."
       );
     } finally {
       setLoadingCatalog(false);
@@ -92,7 +92,7 @@ export default function WorkoutBuilderScreen() {
       series: "4",
       reps: "10",
       carga: "0",
-      rest: "90",
+      rest: "60",
     };
     setExercises((prev) => [...prev, newExercise]);
     setModalVisible(false);
@@ -102,7 +102,7 @@ export default function WorkoutBuilderScreen() {
   function updateExerciseParam(
     index: number,
     field: keyof ExerciseItemState,
-    value: string,
+    value: string
   ) {
     setExercises((prev) => {
       const updated = [...prev];
@@ -158,7 +158,7 @@ export default function WorkoutBuilderScreen() {
     }
   }
 
-  // Publicar Treino para o Aluno (status: PUBLICADO)
+  // Publicar Treino para o Aluno (status: PUBLICADO/ATIVO)
   async function handlePublish() {
     if (exercises.length === 0) {
       Alert.alert("Aviso", "Adicione pelo menos um exercício ao treino.");
@@ -170,7 +170,6 @@ export default function WorkoutBuilderScreen() {
       const payload = buildPayload();
       let activeWorkoutId = workoutId;
 
-      // Se ainda não foi salvo como rascunho no banco, salva primeiro
       if (!activeWorkoutId) {
         const created = await createWorkoutDraft(parsedStudentId, payload);
         activeWorkoutId = created.id;
@@ -179,7 +178,6 @@ export default function WorkoutBuilderScreen() {
         await updateWorkout(parsedStudentId, activeWorkoutId, payload);
       }
 
-      // Altera o status para PUBLICADO na API
       await publishWorkout(parsedStudentId, activeWorkoutId);
 
       Alert.alert("Sucesso!", "Treino publicado e enviado para o aluno.", [
@@ -329,7 +327,7 @@ export default function WorkoutBuilderScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal Catálogo de Exercícios (com dados vindos do data.sql) */}
+      {/* Modal Catálogo de Exercícios */}
       <Modal visible={modalVisible} animationType="slide">
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -357,9 +355,11 @@ export default function WorkoutBuilderScreen() {
                 >
                   <Text style={styles.catalogName}>{item.nome}</Text>
                   <Text style={styles.catalogSub}>
-                    {item.objetivo} • {item.dificuldade}
+                    {item.objetivo || "Geral"} • {item.dificuldade || "Médio"}
                   </Text>
-                  <Text style={styles.catalogDesc}>{item.descricao}</Text>
+                  {item.descricao && (
+                    <Text style={styles.catalogDesc}>{item.descricao}</Text>
+                  )}
                 </TouchableOpacity>
               )}
             />
@@ -371,7 +371,7 @@ export default function WorkoutBuilderScreen() {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/dashboard")}
+          onPress={() => router.replace("/teacher/dashboard")}
         >
           <Feather name="home" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Início</Text>
@@ -379,7 +379,7 @@ export default function WorkoutBuilderScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/students")}
+          onPress={() => router.replace("/teacher/students")}
         >
           <FontAwesome5 name="users" size={18} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Alunos</Text>
@@ -390,7 +390,10 @@ export default function WorkoutBuilderScreen() {
           <Text style={styles.tabLabelActive}>Treinos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/evaluations")}
+        >
           <Feather name="star" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Avaliações</Text>
         </TouchableOpacity>

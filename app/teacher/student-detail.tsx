@@ -31,8 +31,11 @@ interface UserResponse {
 
 interface AlunoResponse {
   id: number;
-  user: UserResponse;
-  professorId: number;
+  user?: UserResponse;
+  nome?: string;
+  email?: string;
+  telefone?: string;
+  professorId?: number;
 }
 
 const notify = (title: string, message: string) => {
@@ -77,17 +80,16 @@ export default function StudentDetailScreen() {
 
       // 1. Procura perfil do aluno
       const studentRes = await api.get(
-        `/professors/me/students/${activeStudentId}`,
+        `/professors/me/students/${activeStudentId}`
       );
       setStudent(studentRes.data);
 
       // 2. Procura os treinos associados ao aluno
       setLoadingWorkouts(true);
       const workoutsData = await getStudentWorkouts(Number(activeStudentId));
-      setWorkouts(workoutsData);
+      setWorkouts(workoutsData || []);
     } catch (error: any) {
       console.error("Erro ao carregar dados do aluno:", error);
-      notify("Erro", "Não foi possível carregar as informações do aluno.");
     } finally {
       setLoading(false);
       setLoadingWorkouts(false);
@@ -109,13 +111,13 @@ export default function StudentDetailScreen() {
     );
   }
 
-  const studentName = student
-    ? `${student.user?.nome || ""} ${student.user?.sobrenome || ""}`.trim()
-    : "Aluno";
+  const rawName = student?.user?.nome || student?.nome || "Aluno";
+  const rawSurname = student?.user?.sobrenome || "";
+  const studentName = `${rawName} ${rawSurname}`.trim();
+  const studentEmail = student?.user?.email || student?.email || "Sem e-mail";
+  const studentPhone = student?.user?.telefone || student?.telefone || "Não informado";
 
-  const avatarInitial = student?.user?.nome
-    ? student.user.nome.charAt(0).toUpperCase()
-    : "A";
+  const avatarInitial = rawName.charAt(0).toUpperCase() || "A";
 
   const latestWorkout = workouts.length > 0 ? workouts[0] : null;
 
@@ -154,9 +156,7 @@ export default function StudentDetailScreen() {
             <Text style={styles.avatarInitialText}>{avatarInitial}</Text>
           </View>
           <Text style={styles.studentName}>{studentName}</Text>
-          <Text style={styles.studentMeta}>
-            {student?.user?.email || "Sem e-mail"}
-          </Text>
+          <Text style={styles.studentMeta}>{studentEmail}</Text>
 
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>Ativo</Text>
@@ -192,7 +192,7 @@ export default function StudentDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               );
-            },
+            }
           )}
         </View>
 
@@ -203,18 +203,14 @@ export default function StudentDetailScreen() {
             <View style={styles.infoCard}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>E-mail</Text>
-                <Text style={styles.infoValue}>
-                  {student?.user?.email || "N/A"}
-                </Text>
+                <Text style={styles.infoValue}>{studentEmail}</Text>
               </View>
 
               <View style={styles.divider} />
 
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Telefone</Text>
-                <Text style={styles.infoValue}>
-                  {student?.user?.telefone || "Não informado"}
-                </Text>
+                <Text style={styles.infoValue}>{studentPhone}</Text>
               </View>
             </View>
 
@@ -332,7 +328,10 @@ export default function StudentDetailScreen() {
           <Text style={styles.tabLabelInactive}>Treinos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/more")}
+        >
           <Feather name="menu" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Mais</Text>
         </TouchableOpacity>

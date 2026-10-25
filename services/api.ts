@@ -1,4 +1,5 @@
 import axios from "axios";
+import { router } from "expo-router";
 import { getToken, removeToken } from "./storage";
 
 // Exportação nomeada e default para compatibilidade total de imports
@@ -13,9 +14,16 @@ export const api = axios.create({
 // Interceptor de Requisição: adiciona o token JWT em cada chamada
 api.interceptors.request.use(
   async (config) => {
-    if (config.url?.includes("/login") || config.url?.includes("/register")) {
+    // Lista de rotas públicas mapeadas no SecurityConfig.java
+    const isPublicRoute =
+      config.url?.includes("/auth/login") ||
+      config.url?.includes("/auth/") ||
+      (config.url?.includes("/professors") && config.method?.toUpperCase() === "POST");
+    (config.url?.includes("/students") && config.method?.toUpperCase() === "POST");
+    if (isPublicRoute) {
       return config;
     }
+
     const token = await getToken();
     console.log("🔑 [DEBUG] Token no Storage:", token);
 
@@ -23,7 +31,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     } else {
       console.warn(
-        "⚠️ [DEBUG] Nenhum token encontrado ou headers não definidos.",
+        "⚠️ [DEBUG] Nenhum token encontrado para rota protegida.",
       );
     }
     return config;
@@ -42,6 +50,7 @@ api.interceptors.response.use(
         "⚠️ [DEBUG] Sessão expirada ou não autorizada. Limpando token...",
       );
       await removeToken();
+      router.replace("/login");
     }
     return Promise.reject(error);
   },

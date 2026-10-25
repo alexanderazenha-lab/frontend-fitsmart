@@ -1,14 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../services/api";
 import {
-    getToken,
-    getUserData,
-    removeToken,
-    saveToken,
-    saveUserData,
+  getToken,
+  getUserData,
+  removeToken,
+  saveToken,
+  saveUserData,
 } from "../services/storage";
 
 export interface UserAuthData {
+  id?: number;
   nome: string;
   email: string;
   tipo_usuario: "PROFESSOR" | "ALUNO";
@@ -61,7 +62,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signOut = async () => {
     await removeToken();
-    delete api.defaults.headers.common["Authorization"];
     setUser(null);
   };
 

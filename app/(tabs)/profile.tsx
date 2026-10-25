@@ -1,11 +1,8 @@
-import {
-  Feather,
-  FontAwesome5,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   SafeAreaView,
   ScrollView,
@@ -16,126 +13,150 @@ import {
   View,
 } from "react-native";
 
+import api from "../../services/api";
+
+interface ProfileData {
+  nome: string;
+  email: string;
+  plano?: string;
+  professorNome?: string;
+  professorId?: number;
+}
+
 export default function StudentProfileScreen() {
   const router = useRouter();
+
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const response = await api.get("/students/me/profile");
+        setProfile(response.data);
+      } catch (error) {
+        console.error("Erro ao carregar perfil do aluno:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#FF5500" />
+      </SafeAreaView>
+    );
+  }
+
+  const studentName = profile?.nome || "Aluno FitSmart";
+  const studentEmail = profile?.email || "aluno@email.com";
+  const teacherName = profile?.professorNome || "Prof. Lucas Andrade";
+  const teacherId = profile?.professorId || 1;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#09090A" />
 
       <ScrollView contentContainerStyle={styles.scrollPadding}>
-        {/* Cabeçalho com Foto e Nome */}
-        <View style={styles.headerBox}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop",
-            }}
-            style={styles.avatar}
-          />
-          <Text style={styles.userName}>Beatriz Lima</Text>
-          <Text style={styles.userEmail}>beatriz.lima@email.com</Text>
+        <Text style={styles.headerTitle}>Meu Perfil</Text>
 
-          <View style={styles.goalBadge}>
-            <Text style={styles.goalBadgeText}>Objetivo: Hipertrofia</Text>
+        {/* Card do Usuário */}
+        <View style={styles.userCard}>
+          <View style={styles.avatarBox}>
+            <Text style={styles.avatarText}>
+              {studentName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{studentName}</Text>
+            <Text style={styles.userEmail}>{studentEmail}</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {profile?.plano || "Plano Premium"}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Resumo de Conquistas do Mês */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>18</Text>
-            <Text style={styles.statLabel}>Treinos no Mês</Text>
+        {/* Card do Personal Trainer com Botão de Chat Integrado */}
+        <Text style={styles.sectionTitle}>Seu Treinador</Text>
+        <View style={styles.teacherCard}>
+          <View style={styles.teacherMainInfo}>
+            <Image
+              source={{
+                uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop",
+              }}
+              style={styles.teacherAvatar}
+            />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.teacherRole}>Personal Trainer</Text>
+              <Text style={styles.teacherName}>{teacherName}</Text>
+            </View>
           </View>
 
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Dias Seguidos</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>84,2 t</Text>
-            <Text style={styles.statLabel}>Carga Total</Text>
-          </View>
-        </View>
-
-        {/* Menu de Navegação do Usuário */}
-        <Text style={styles.sectionTitle}>Minha Conta</Text>
-        <View style={styles.menuContainer}>
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/evaluation")}
+            style={styles.chatButton}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/chat" as any,
+                params: { teacherId },
+              })
+            }
+            activeOpacity={0.8}
           >
-            <View style={styles.menuIconBox}>
-              <Feather name="activity" size={18} color="#FF5500" />
-            </View>
-            <Text style={styles.menuText}>Minhas Avaliações Físicas</Text>
-            <Feather name="chevron-right" size={18} color="#52525B" />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/history")}
-          >
-            <View style={styles.menuIconBox}>
-              <Feather name="clock" size={18} color="#FF5500" />
-            </View>
-            <Text style={styles.menuText}>Histórico de Treinos</Text>
-            <Feather name="chevron-right" size={18} color="#52525B" />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/settings")}
-          >
-            <View style={styles.menuIconBox}>
-              <Feather name="settings" size={18} color="#FF5500" />
-            </View>
-            <Text style={styles.menuText}>Configurações</Text>
-            <Feather name="chevron-right" size={18} color="#52525B" />
+            <Feather name="message-square" size={18} color="#FFFFFF" />
+            <Text style={styles.chatButtonText}>Falar com o Personal</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Botão Sair */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={() => router.replace("/login")}
-        >
-          <Feather name="log-out" size={18} color="#EF4444" />
-          <Text style={styles.logoutText}>Sair da Conta</Text>
-        </TouchableOpacity>
+        {/* Opções do Menu */}
+        <Text style={styles.sectionTitle}>Opções</Text>
+        <View style={styles.menuGroup}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/chat" as any,
+                params: { teacherId },
+              })
+            }
+          >
+            <View style={styles.menuIconBox}>
+              <Feather name="message-circle" size={18} color="#FF5500" />
+            </View>
+            <Text style={styles.menuText}>Mensagens e Dúvidas</Text>
+            <Feather name="chevron-right" size={18} color="#71717A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <View style={styles.menuIconBox}>
+              <Feather name="user" size={18} color="#71717A" />
+            </View>
+            <Text style={styles.menuText}>Dados Pessoais</Text>
+            <Feather name="chevron-right" size={18} color="#71717A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <View style={styles.menuIconBox}>
+              <Feather name="bell" size={18} color="#71717A" />
+            </View>
+            <Text style={styles.menuText}>Notificações</Text>
+            <Feather name="chevron-right" size={18} color="#71717A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
+            <View style={styles.menuIconBox}>
+              <Feather name="log-out" size={18} color="#EF4444" />
+            </View>
+            <Text style={[styles.menuText, { color: "#EF4444" }]}>
+              Sair da Conta
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-
-      {/* Tab Bar Inferior Aluno */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/(tabs)/workout")}
-        >
-          <MaterialCommunityIcons name="dumbbell" size={20} color="#71717A" />
-          <Text style={styles.tabLabelInactive}>Treino</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/(tabs)/explore")}
-        >
-          <Feather name="message-square" size={20} color="#71717A" />
-          <Text style={styles.tabLabelInactive}>Feedback</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem}>
-          <FontAwesome5 name="user-alt" size={18} color="#FF5500" />
-          <Text style={styles.tabLabelActive}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -145,25 +166,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#09090A",
   },
+  center: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   scrollPadding: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 100,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  headerBox: {
-    alignItems: "center",
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#FFFFFF",
     marginBottom: 20,
   },
-  avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
+  userCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#18181B",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#27272A",
+  },
+  avatarBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#261710",
+    borderWidth: 1,
     borderColor: "#FF5500",
-    marginBottom: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    color: "#FF5500",
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: 14,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#FFFFFF",
   },
@@ -172,130 +220,96 @@ const styles = StyleSheet.create({
     color: "#71717A",
     marginTop: 2,
   },
-  goalBadge: {
-    backgroundColor: "#18181B",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#27272A",
-    marginTop: 10,
+  badge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 85, 0, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 8,
   },
-  goalBadgeText: {
+  badgeText: {
+    fontSize: 11,
     color: "#FF5500",
-    fontSize: 12,
     fontWeight: "600",
   },
-  statsRow: {
-    flexDirection: "row",
-    backgroundColor: "#18181B",
-    borderRadius: 12,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: "#27272A",
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 18,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: "bold",
     color: "#FFFFFF",
+    marginBottom: 12,
   },
-  statLabel: {
-    fontSize: 11,
-    color: "#71717A",
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "#27272A",
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#71717A",
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  menuContainer: {
+  teacherCard: {
     backgroundColor: "#18181B",
-    borderRadius: 12,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: "#27272A",
-    marginBottom: 20,
+  },
+  teacherMainInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  teacherAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  teacherRole: {
+    fontSize: 11,
+    color: "#71717A",
+    textTransform: "uppercase",
+    fontWeight: "600",
+  },
+  teacherName: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginTop: 2,
+  },
+  chatButton: {
+    flexDirection: "row",
+    backgroundColor: "#FF5500",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  chatButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  menuGroup: {
+    backgroundColor: "#18181B",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#27272A",
+    overflow: "hidden",
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 12,
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#27272A",
   },
   menuIconBox: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 85, 0, 0.1)",
+    backgroundColor: "#09090A",
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 12,
   },
   menuText: {
     flex: 1,
+    fontSize: 14,
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "500",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#27272A",
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#18181B",
-    borderWidth: 1,
-    borderColor: "#3F1D1D",
-    gap: 8,
-  },
-  logoutText: {
-    color: "#EF4444",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  tabBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 64,
-    backgroundColor: "#09090A",
-    borderTopWidth: 1,
-    borderTopColor: "#18181B",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingBottom: 8,
-  },
-  tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabLabelActive: {
-    fontSize: 11,
-    color: "#FF5500",
-    fontWeight: "600",
-    marginTop: 3,
-  },
-  tabLabelInactive: {
-    fontSize: 11,
-    color: "#71717A",
-    marginTop: 3,
   },
 });

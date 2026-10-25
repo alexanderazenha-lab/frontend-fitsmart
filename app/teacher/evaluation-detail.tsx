@@ -3,9 +3,10 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -15,8 +16,75 @@ import {
   View,
 } from "react-native";
 
+import api from "../../services/api";
+
+interface EvaluationDetail {
+  id: number;
+  dataAvaliacao?: string;
+  data?: string;
+  peso?: number;
+  percentualGordura?: number;
+  massaMagra?: number;
+  imc?: number;
+  perímetros?: {
+    cintura?: number;
+    quadril?: number;
+    braco?: number;
+    coxa?: number;
+  };
+  observacoes?: string;
+  lesoesLimitações?: string;
+}
+
 export default function EvaluationDetailScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ evaluationId?: string }>();
+
+  const [evaluation, setEvaluation] = useState<EvaluationDetail | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchEvaluationDetail() {
+      if (!params.evaluationId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/professors/evaluations/${params.evaluationId}`);
+        setEvaluation(response.data);
+      } catch (error) {
+        console.error("Erro ao carregar detalhes da avaliação:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEvaluationDetail();
+  }, [params.evaluationId]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#FF5500" />
+        <Text style={styles.loadingText}>A carregar detalhes da avaliação...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const evalDate = evaluation?.dataAvaliacao || evaluation?.data || "Data não informada";
+  const weight = evaluation?.peso ? String(evaluation.peso) : "--";
+  const fat = evaluation?.percentualGordura ? String(evaluation.percentualGordura) : "--";
+  const leanMass = evaluation?.massaMagra ? String(evaluation.massaMagra) : "--";
+  const imc = evaluation?.imc ? String(evaluation.imc) : "--";
+
+  const waist = evaluation?.perímetros?.cintura ? String(evaluation.perímetros.cintura) : "--";
+  const hip = evaluation?.perímetros?.quadril ? String(evaluation.perímetros.quadril) : "--";
+  const arm = evaluation?.perímetros?.braco ? String(evaluation.perímetros.braco) : "--";
+  const thigh = evaluation?.perímetros?.coxa ? String(evaluation.perímetros.coxa) : "--";
+
+  const notes = evaluation?.observacoes || "Nenhuma observação registada.";
+  const limitations = evaluation?.lesoesLimitações;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,7 +104,7 @@ export default function EvaluationDetailScreen() {
         </View>
 
         <Text style={styles.headerTitle}>Avaliação Física</Text>
-        <Text style={styles.headerSubtitle}>14/05/2026</Text>
+        <Text style={styles.headerSubtitle}>{evalDate}</Text>
 
         {/* Composição Corporal */}
         <Text style={styles.sectionTitle}>Composição corporal</Text>
@@ -44,27 +112,27 @@ export default function EvaluationDetailScreen() {
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Peso</Text>
             <Text style={styles.metricValue}>
-              62,5 <Text style={styles.metricUnit}>kg</Text>
+              {weight} <Text style={styles.metricUnit}>kg</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>% Gordura</Text>
             <Text style={styles.metricValue}>
-              23<Text style={styles.metricUnit}>%</Text>
+              {fat}<Text style={styles.metricUnit}>%</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Massa Magra</Text>
             <Text style={styles.metricValue}>
-              48,1 <Text style={styles.metricUnit}>kg</Text>
+              {leanMass} <Text style={styles.metricUnit}>kg</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>IMC</Text>
-            <Text style={styles.metricValue}>22,1</Text>
+            <Text style={styles.metricValue}>{imc}</Text>
           </View>
         </View>
 
@@ -74,28 +142,28 @@ export default function EvaluationDetailScreen() {
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Cintura</Text>
             <Text style={styles.metricValue}>
-              72 <Text style={styles.metricUnit}>cm</Text>
+              {waist} <Text style={styles.metricUnit}>cm</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Quadril</Text>
             <Text style={styles.metricValue}>
-              98 <Text style={styles.metricUnit}>cm</Text>
+              {hip} <Text style={styles.metricUnit}>cm</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Braço</Text>
             <Text style={styles.metricValue}>
-              28 <Text style={styles.metricUnit}>cm</Text>
+              {arm} <Text style={styles.metricUnit}>cm</Text>
             </Text>
           </View>
 
           <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Coxa</Text>
             <Text style={styles.metricValue}>
-              56 <Text style={styles.metricUnit}>cm</Text>
+              {thigh} <Text style={styles.metricUnit}>cm</Text>
             </Text>
           </View>
         </View>
@@ -103,29 +171,30 @@ export default function EvaluationDetailScreen() {
         {/* Observações */}
         <Text style={styles.sectionTitle}>Observações</Text>
         <View style={styles.cardBox}>
-          <Text style={styles.bodyText}>
-            Aluno relata dor leve no ombro direito ao realizar movimentos acima
-            da cabeça.
-          </Text>
+          <Text style={styles.bodyText}>{notes}</Text>
         </View>
 
         {/* Lesões e Limitações */}
-        <Text style={styles.sectionTitle}>Lesões e limitações</Text>
-        <View style={styles.cardBox}>
-          <View style={styles.orangeBadge}>
-            <Text style={styles.orangeBadgeText}>Ombro direito</Text>
-          </View>
-          <Text style={[styles.bodyText, { marginTop: 8 }]}>
-            Dor ao elevar o braço acima da cabeça
-          </Text>
-        </View>
+        {limitations && (
+          <>
+            <Text style={styles.sectionTitle}>Lesões e limitações</Text>
+            <View style={styles.cardBox}>
+              <View style={styles.orangeBadge}>
+                <Text style={styles.orangeBadgeText}>Atenção</Text>
+              </View>
+              <Text style={[styles.bodyText, { marginTop: 8 }]}>
+                {limitations}
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Tab Bar Inferior Professor */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/dashboard")}
+          onPress={() => router.replace("/teacher/dashboard")}
         >
           <Feather name="home" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Início</Text>
@@ -133,23 +202,32 @@ export default function EvaluationDetailScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/students")}
+          onPress={() => router.replace("/teacher/students")}
         >
           <FontAwesome5 name="users" size={18} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Alunos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/workout-builder")}
+        >
           <MaterialCommunityIcons name="dumbbell" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Treinos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/evaluations")}
+        >
           <Feather name="star" size={20} color="#FF5500" />
           <Text style={styles.tabLabelActive}>Avaliações</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/more")}
+        >
           <Feather name="menu" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Mais</Text>
         </TouchableOpacity>
@@ -162,6 +240,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#09090A",
+  },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#71717A",
+    marginTop: 12,
+    fontSize: 14,
   },
   scrollPadding: {
     paddingHorizontal: 20,

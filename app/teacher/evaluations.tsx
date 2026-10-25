@@ -3,9 +3,11 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -15,21 +17,82 @@ import {
   View,
 } from "react-native";
 
-const evaluationsHistory = [
-  { id: "1", date: "14/05/2026", weight: "62,5 kg", bodyFat: "23%" },
-  { id: "2", date: "10/03/2026", weight: "63,2 kg", bodyFat: "24%" },
-  { id: "3", date: "12/01/2026", weight: "64,0 kg", bodyFat: "25%" },
-  { id: "4", date: "15/11/2025", weight: "65,1 kg", bodyFat: "26%" },
-];
+import api from "../../services/api";
+
+interface EvaluationResponse {
+  id: number;
+  dataAvaliacao?: string;
+  data?: string;
+  peso: number;
+  percentualGordura?: number;
+  dobrasCutaneas?: any;
+  alunoNome?: string;
+}
 
 export default function EvaluationsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ studentId?: string }>();
+
+  const [evaluations, setEvaluations] = useState<EvaluationResponse[]>([]);
+  const [studentName, setStudentName] = useState<string>("Aluno");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // Carrega as avaliações do aluno informado
+  const fetchEvaluations = async () => {
+    try {
+      if (params.studentId) {
+        const response = await api.get(
+          `/professors/students/${params.studentId}/evaluations`
+        );
+        const data = Array.isArray(response.data)
+          ? response.data
+          : response.data?.content || [];
+
+        setEvaluations(data);
+
+        if (data.length > 0 && data[0].alunoNome) {
+          setStudentName(data[0].alunoNome);
+        }
+      } else {
+        // Fallback: Busca todas as avaliações enviadas pelo professor
+        const response = await api.get("/professors/me/evaluations");
+        const data = Array.isArray(response.data)
+          ? response.data
+          : response.data?.content || [];
+        setEvaluations(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar avaliações:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvaluations();
+  }, [params.studentId]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchEvaluations();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#09090A" />
 
-      <ScrollView contentContainerStyle={styles.scrollPadding}>
+      <ScrollView
+        contentContainerStyle={styles.scrollPadding}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FF5500"
+          />
+        }
+      >
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -40,42 +103,81 @@ export default function EvaluationsScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Avaliações</Text>
-            <Text style={styles.studentName}>Ana Carolina</Text>
+            <Text style={styles.studentName}>
+              {params.studentId ? `Aluno: ${studentName}` : "Geral de Alunos"}
+            </Text>
           </View>
 
-          <TouchableOpacity style={styles.addEvaluationButton}>
+          <TouchableOpacity
+            style={styles.addEvaluationButton}
+            onPress={() =>
+              router.push({
+                pathname: "/teacher/create-evaluation",
+                params: { studentId: params.studentId },
+              })
+            }
+          >
             <Feather name="plus" size={16} color="#FFFFFF" />
             <Text style={styles.addEvaluationText}>Nova avaliação</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Lista Cronológica */}
-        <View style={{ marginTop: 20 }}>
-          {evaluationsHistory.map((item) => (
-            <View key={item.id} style={styles.evaluationCard}>
-              <View>
-                <Text style={styles.evalDate}>{item.date}</Text>
-                <Text style={styles.evalMeta}>
-                  Peso: {item.weight} • % Gordura: {item.bodyFat}
-                </Text>
-              </View>
+        {/* Conteúdo Dinâmico */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF5500" />
+            <Text style={styles.loadingText}>A carregar avaliações...</Text>
+          </View>
+        ) : evaluations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Feather name="activity" size={36} color="#52525B" />
+            <Text style={styles.emptyTitle}>Sem avaliações registadas</Text>
+            <Text style={styles.emptySubtitle}>
+              Clique em "Nova avaliação" para registar as medidas do aluno.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ marginTop: 20 }}>
+            {evaluations.map((item) => {
+              const displayDate =
+                item.dataAvaliacao || item.data || "Data N/A";
+              const weightText = item.peso ? `${item.peso} kg` : "--";
+              const fatText = item.percentualGordura
+                ? `${item.percentualGordura}%`
+                : "--";
 
-              <TouchableOpacity
-                style={styles.outlineOrangeButton}
-                onPress={() => router.push("/teacher/evaluation-detail")}
-              >
-                <Text style={styles.outlineOrangeText}>Ver detalhes</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+              return (
+                <View key={item.id} style={styles.evaluationCard}>
+                  <View>
+                    <Text style={styles.evalDate}>{displayDate}</Text>
+                    <Text style={styles.evalMeta}>
+                      Peso: {weightText} • % Gordura: {fatText}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.outlineOrangeButton}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/teacher/evaluation-detail",
+                        params: { evaluationId: item.id },
+                      })
+                    }
+                  >
+                    <Text style={styles.outlineOrangeText}>Ver detalhes</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {/* Tab Bar Inferior Professor */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/dashboard")}
+          onPress={() => router.replace("/teacher/dashboard")}
         >
           <Feather name="home" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Início</Text>
@@ -83,13 +185,16 @@ export default function EvaluationsScreen() {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => router.push("/teacher/students")}
+          onPress={() => router.replace("/teacher/students")}
         >
           <FontAwesome5 name="users" size={18} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Alunos</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/workout-builder")}
+        >
           <MaterialCommunityIcons name="dumbbell" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Treinos</Text>
         </TouchableOpacity>
@@ -99,7 +204,10 @@ export default function EvaluationsScreen() {
           <Text style={styles.tabLabelActive}>Avaliações</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => router.replace("/teacher/more")}
+        >
           <Feather name="menu" size={20} color="#71717A" />
           <Text style={styles.tabLabelInactive}>Mais</Text>
         </TouchableOpacity>
@@ -152,6 +260,32 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#71717A",
+    marginTop: 12,
+    fontSize: 14,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 8,
+  },
+  emptyTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    color: "#71717A",
+    fontSize: 13,
+    textAlign: "center",
   },
   evaluationCard: {
     flexDirection: "row",

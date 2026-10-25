@@ -4,9 +4,10 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   SafeAreaView,
   ScrollView,
@@ -17,8 +18,66 @@ import {
   View,
 } from "react-native";
 
+// Ajuste para subir dois níveis (../../)
+import api from "../../services/api";
+import { ExercicioResponseDTO } from "../../types/workout";
+
 export default function ExerciseDetailScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string }>();
+
+  const [exercise, setExercise] = useState<ExercicioResponseDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchExerciseDetail() {
+      if (!params.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setError(null);
+        const response = await api.get<ExercicioResponseDTO>(`/exercicios/${params.id}`);
+        setExercise(response.data);
+      } catch (err: any) {
+        console.error("Erro ao carregar detalhes do exercício:", err);
+        setError("Não foi possível carregar os detalhes do exercício.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchExerciseDetail();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#FF5500" />
+        <Text style={styles.loadingText}>A carregar exercício...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Fallbacks com dados padrão caso o DTO não possua alguns campos opcionais
+  const exerciseName = exercise?.nome || "Detalhes do Exercício";
+  const difficulty = exercise?.dificuldade || "Intermediário";
+  const objective = exercise?.objetivo || "Hipertrofia e Força";
+  const description =
+    exercise?.descricao ||
+    "Execute o movimento de forma controlada mantendo a postura correta.";
+
+  const actions: string[] = exercise?.acoesArticulares || [
+    "Mantenha os pés firmes no chão.",
+    "Controle a fase concêntrica e excêntrica.",
+  ];
+
+  const restrictions: string[] = exercise?.restricoesLesoes ||
+    exercise?.restricoesLimitacoes || [
+      "Evite afastar excessivamente os cotovelos para proteger as articulações dos ombros.",
+    ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -46,58 +105,48 @@ export default function ExerciseDetailScreen() {
         </View>
 
         {/* Título e Músculo Alvo */}
-        <Text style={styles.exerciseTitle}>Supino Reto com Barra</Text>
+        <Text style={styles.exerciseTitle}>{exerciseName}</Text>
         <View style={styles.tagRow}>
           <View style={styles.tagBadge}>
-            <Text style={styles.tagText}>Peitoral Maior</Text>
+            <Text style={styles.tagText}>{objective}</Text>
           </View>
           <View style={[styles.tagBadge, styles.secondaryBadge]}>
-            <Text style={styles.secondaryTagText}>Tríceps e Deltóide</Text>
+            <Text style={styles.secondaryTagText}>Nível: {difficulty}</Text>
           </View>
         </View>
 
-        {/* Execução Passo a Passo */}
+        {/* Descrição do Exercício */}
+        <Text style={styles.sectionTitle}>Orientação Técnica</Text>
+        <View style={styles.descriptionCard}>
+          <Text style={styles.descriptionText}>{description}</Text>
+        </View>
+
+        {/* Ações / Passo a Passo com Tipagem Explícita */}
         <Text style={styles.sectionTitle}>Como executar</Text>
+        {actions.map((step: string, index: number) => (
+          <View key={index} style={styles.stepCard}>
+            <Text style={styles.stepNumber}>{index + 1}</Text>
+            <Text style={styles.stepText}>{step}</Text>
+          </View>
+        ))}
 
-        <View style={styles.stepCard}>
-          <Text style={styles.stepNumber}>1</Text>
-          <Text style={styles.stepText}>
-            Deite-se no banco com os pés bem firmes no chão e mantenha a
-            curvatura natural da coluna.
-          </Text>
-        </View>
-
-        <View style={styles.stepCard}>
-          <Text style={styles.stepNumber}>2</Text>
-          <Text style={styles.stepText}>
-            Segure a barra com uma pegada um pouco mais larga que a largura dos
-            ombros e aduza as escápulas.
-          </Text>
-        </View>
-
-        <View style={styles.stepCard}>
-          <Text style={styles.stepNumber}>3</Text>
-          <Text style={styles.stepText}>
-            Desça a barra de forma controlada até a linha média do peitoral e
-            empurre até a extensão quase completa dos braços.
-          </Text>
-        </View>
-
-        {/* Dicas de Segurança */}
-        <Text style={styles.sectionTitle}>Erros comuns a evitar</Text>
-        <View style={styles.warningBox}>
-          <Feather
-            name="alert-circle"
-            size={18}
-            color="#EF4444"
-            style={{ marginTop: 2 }}
-          />
-          <Text style={styles.warningText}>
-            Não afaste cotovelos em um ângulo de 90° em relação ao tronco.
-            Mantenha-os em aproximadamente 45° para proteger a articulação do
-            ombro.
-          </Text>
-        </View>
+        {/* Cuidados e Restrições com Tipagem Explícita */}
+        {restrictions.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Cuidados e Restrições</Text>
+            {restrictions.map((item: string, index: number) => (
+              <View key={index} style={styles.warningBox}>
+                <Feather
+                  name="alert-circle"
+                  size={18}
+                  color="#EF4444"
+                  style={{ marginTop: 2 }}
+                />
+                <Text style={styles.warningText}>{item}</Text>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
 
       {/* Tab Bar Inferior Aluno */}
@@ -134,6 +183,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#09090A",
+  },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#A1A1AA",
+    marginTop: 12,
+    fontSize: 14,
   },
   scrollPadding: {
     paddingHorizontal: 20,
@@ -198,7 +256,20 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 12,
+  },
+  descriptionCard: {
+    backgroundColor: "#18181B",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#27272A",
+    marginBottom: 8,
+  },
+  descriptionText: {
+    color: "#D4D4D8",
+    fontSize: 13,
+    lineHeight: 20,
   },
   stepCard: {
     flexDirection: "row",
@@ -231,6 +302,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#451A1D",
+    marginBottom: 10,
     gap: 10,
   },
   warningText: {

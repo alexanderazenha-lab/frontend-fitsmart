@@ -1,7 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   SafeAreaView,
   ScrollView,
@@ -13,44 +14,85 @@ import {
   View,
 } from "react-native";
 
-const initialMessages = [
-  {
-    id: "1",
-    sender: "student",
-    text: "Professor, senti um pouco de desconforto no ombro no supino hoje.",
-    time: "09:14",
-  },
-  {
-    id: "2",
-    sender: "teacher",
-    text: "Oi Ana! Obrigado por avisar. Reduza a carga em 20% no próximo treino e foque na retração da escápula.",
-    time: "09:18",
-  },
-  {
-    id: "3",
-    sender: "student",
-    text: "Combinado! Já ajustei aqui na ficha.",
-    time: "09:20",
-  },
-];
+import {
+  getChatHistory,
+  markMessagesAsRead,
+  MessageDTO,
+  sendMessage,
+} from "../../services/chatService";
 
 export default function TeacherChatScreen() {
   const router = useRouter();
-  const [messages, setMessages] = useState(initialMessages);
-  const [inputMessage, setInputMessage] = useState("");
+  const params = useLocalSearchParams<{ studentId?: string; studentName?: string }>();
 
-  const handleSend = () => {
-    if (!inputMessage.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        sender: "teacher",
-        text: inputMessage,
-        time: "Agora",
-      },
-    ]);
+  // Dados do aluno selecionado na conversa
+  const targetStudentId = Number(params.studentId) || 1;
+  const studentDisplayName = params.studentName || "Aluno";
+
+  const [messages, setMessages] = useState<MessageDTO[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  // Carrega as mensagens da conversa com o aluno
+  const loadMessages = async () => {
+    try {
+      const history = await getChatHistory(targetStudentId);
+      setMessages(history);
+      await markMessagesAsRead(targetStudentId);
+    } catch (error) {
+      console.error("Erro ao carregar chat do professor:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMessages();
+
+    // Atualiza a conversa a cada 4 segundos para checar novas mensagens do aluno
+    const interval = setInterval(() => {
+      loadMessages();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [targetStudentId]);
+
+  // Envia resposta para o aluno
+  const handleSend = async () => {
+    if (!inputMessage.trim() || sending) return;
+
+    const messageText = inputMessage.trim();
     setInputMessage("");
+    setSending(true);
+
+    try {
+      const newMsg = await sendMessage({
+        destinatarioId: targetStudentId,
+        texto: messageText,
+      });
+
+      if (newMsg) {
+        setMessages((prev) => [...prev, newMsg]);
+      } else {
+        // Fallback local em caso de instabilidade de rede
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            remetenteId: 0,
+            destinatarioId: targetStudentId,
+            texto: messageText,
+            dataEnvio: new Date().toISOString(),
+            tipoRemetente: "PROFESSOR",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Erro ao enviar mensagem pelo professor:", error);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -74,8 +116,8 @@ export default function TeacherChatScreen() {
         />
 
         <View style={styles.headerInfo}>
-          <Text style={styles.studentName}>Ana Carolina</Text>
-          <Text style={styles.onlineStatus}>Online agora</Text>
+          <Text style={styles.studentName}>{studentDisplayName}</Text>
+          <Text style={styles.onlineStatus}>Aluno • Online agora</Text>
         </View>
 
         <TouchableOpacity style={styles.iconButton}>
@@ -84,30 +126,43 @@ export default function TeacherChatScreen() {
       </View>
 
       {/* Área de Mensagens */}
-      <ScrollView contentContainerStyle={styles.messagesPadding}>
-        {messages.map((msg) => {
-          const isTeacher = msg.sender === "teacher";
-          return (
-            <View
-              key={msg.id}
-              style={[
-                styles.messageWrapper,
-                isTeacher ? styles.teacherWrapper : styles.studentWrapper,
-              ]}
-            >
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF5500" />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.messagesPadding}>
+          {messages.map((msg) => {
+            const isTeacher = msg.tipoRemetente === "PROFESSOR";
+            const formattedTime = msg.dataEnvio
+              ? new Date(msg.dataEnvio).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Agora";
+
+            return (
               <View
+                key={msg.id}
                 style={[
-                  styles.messageBubble,
-                  isTeacher ? styles.teacherBubble : styles.studentBubble,
+                  styles.messageWrapper,
+                  isTeacher ? styles.teacherWrapper : styles.studentWrapper,
                 ]}
               >
-                <Text style={styles.messageText}>{msg.text}</Text>
-                <Text style={styles.messageTime}>{msg.time}</Text>
+                <View
+                  style={[
+                    styles.messageBubble,
+                    isTeacher ? styles.teacherBubble : styles.studentBubble,
+                  ]}
+                >
+                  <Text style={styles.messageText}>{msg.texto}</Text>
+                  <Text style={styles.messageTime}>{formattedTime}</Text>
+                </View>
               </View>
-            </View>
-          );
-        })}
-      </ScrollView>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {/* Input de Mensagem */}
       <View style={styles.inputContainer}>
@@ -123,8 +178,16 @@ export default function TeacherChatScreen() {
           onChangeText={setInputMessage}
         />
 
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Ionicons name="send" size={16} color="#FFFFFF" />
+        <TouchableOpacity 
+          style={styles.sendButton} 
+          onPress={handleSend}
+          disabled={sending}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons name="send" size={16} color="#FFFFFF" />
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -135,6 +198,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#09090A",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   chatHeader: {
     flexDirection: "row",

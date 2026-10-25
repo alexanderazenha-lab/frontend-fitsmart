@@ -27,6 +27,7 @@ export default function RegisterScreen() {
   const [telefone, setTelefone] = useState("");
   const [dataNascimento, setDataNascimento] = useState(""); // Formato YYYY-MM-DD
   const [sexo, setSexo] = useState<"M" | "F" | "O">("M");
+  const [nivelExperiencia, setNivelExperiencia] = useState<"INICIANTE" | "INTERMEDIARIO" | "AVANCADO">("INICIANTE");
   const [cref, setCref] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -126,6 +127,7 @@ export default function RegisterScreen() {
         await api.post("/professors", payload);
       } else {
         const payload = {
+          nivelExperiencia: nivelExperiencia,
           user: userPayload,
         };
         await api.post("/students", payload);
@@ -133,7 +135,6 @@ export default function RegisterScreen() {
 
       const roleLabel = role === "teacher" ? "Personal" : "Aluno";
 
-      // Alerta nativo de confirmação
       Alert.alert(
         "Sucesso!",
         `Conta de ${roleLabel} criada com sucesso. Faça login para continuar.`,
@@ -145,7 +146,6 @@ export default function RegisterScreen() {
         ],
       );
 
-      // Redirecionamento direto para garantir navegação imediata (principalmente em browsers/Web)
       router.replace("/login");
     } catch (error: any) {
       console.error("Erro no cadastro:", error);
@@ -395,6 +395,65 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Nível de Experiência (Apenas Aluno) */}
+        {role === "student" && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Nível de Experiência *</Text>
+            <View style={styles.sexoContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.sexoOption,
+                  nivelExperiencia === "INICIANTE" && styles.sexoOptionActive,
+                ]}
+                onPress={() => setNivelExperiencia("INICIANTE")}
+              >
+                <Text
+                  style={[
+                    styles.sexoText,
+                    nivelExperiencia === "INICIANTE" && styles.sexoTextActive,
+                  ]}
+                >
+                  Iniciante
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sexoOption,
+                  nivelExperiencia === "INTERMEDIARIO" && styles.sexoOptionActive,
+                ]}
+                onPress={() => setNivelExperiencia("INTERMEDIARIO")}
+              >
+                <Text
+                  style={[
+                    styles.sexoText,
+                    nivelExperiencia === "INTERMEDIARIO" && styles.sexoTextActive,
+                  ]}
+                >
+                  Intermédio
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sexoOption,
+                  nivelExperiencia === "AVANCADO" && styles.sexoOptionActive,
+                ]}
+                onPress={() => setNivelExperiencia("AVANCADO")}
+              >
+                <Text
+                  style={[
+                    styles.sexoText,
+                    nivelExperiencia === "AVANCADO" && styles.sexoTextActive,
+                  ]}
+                >
+                  Avançado
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Senha */}
         <View style={styles.inputGroup}>
